@@ -3,11 +3,13 @@ from __future__ import absolute_import, division, print_function
 import tensorflow as tf
 import tensorflow_datasets as tfds
 tf.logging.set_verbosity(tf.logging.ERROR)
-
+tf.enable_eager_execution()
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import math
 import numpy as np
 import  matplotlib.pyplot as plt
-
 import tqdm
 import tqdm.auto
 tqdm.tqdm = tqdm.auto.tqdm
@@ -33,5 +35,45 @@ def normalize(images, labels):
 train_dataset = train_dataset.map(normalize)
 test_dataset = test_dataset.map(normalize)
 
-for image,label in test_dataset.take(1):
-    break
+plt.figure(figsize=(10,10))
+i = 0
+for (image, label) in test_dataset.take(25):
+    image = image.numpy().reshape((28,28))
+    plt.subplot(5, 5, i+1)
+    plt.xticks([])
+    plt.yticks([])
+    plt.grid(False)
+    plt.imshow(image, cmap=plt.cm.binary)
+    plt.xlabel(class_names[label])
+    i += 1
+plt.show()
+
+model = tf.keras.Sequential([tf.keras.layers.Flatten(input_shape=(28, 28, 1)),
+                             tf.keras.layers.Dense(128, activation=tf.nn.relu),
+                             tf.keras.layers.Dense(10, activation=tf.nn.softmax)])
+
+model.compile(optimizer='adam', loss='sparse_categorical_crossentropy',
+              metrics=['accuracy'])
+
+BATCH_SIZE = 32
+train_dataset = train_dataset.repeat().shuffle(num_train_examples).batch(BATCH_SIZE)
+test_dataset = test_dataset.batch(BATCH_SIZE)
+
+model.fit(train_dataset, epochs=5, steps_per_epoch=math.ceil(num_train_examples/BATCH_SIZE))
+
+test_loss, test_accuracy = model.evaluate(test_dataset, steps=math.ceil(num_test_examples/32))
+print('Accuracy on test dataset: ', test_accuracy)
+
+for test_images, test_labels in test_dataset.take(1):
+    test_images = test_images.numpy()
+    test_labels = test_labels.numpy()
+    predictions = model.predict(test_images)
+
+print(predictions.shape)
+print(predictions[0])
+print(np.argmax(predictions[0]))
+print(test_labels[0])
+
+
+
+
